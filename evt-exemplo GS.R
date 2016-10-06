@@ -10,7 +10,7 @@ library(PtProcess)
 library(gPdtest)
 library(plotly)
 
-setwd("C:\\Users\\Rafael\\Documents\\UDESC\\TCC\\TCC Latex svn\\R codes")
+setwd("C:\\Users\\Rafael\\Documents\\UDESC\\TCC\\TCC Latex svn\\TCC-R-codes")
 
 prices <- as.xts(read.zoo(read.csv("evt-exemplo GS.csv"), format = "%Y-%m-%d", FUN = as.Date))
 returns <- na.omit(Return.calculate(prices, method = "log"))
