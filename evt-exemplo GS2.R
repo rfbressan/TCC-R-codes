@@ -10,6 +10,7 @@ library(PtProcess)
 library(fExtremes)
 library(gPdtest)
 library(plotly)
+library(boot)
 
 setwd("C:\\Users\\Rafael\\Documents\\UDESC\\TCC\\TCC Latex svn\\TCC-R-codes")
 
@@ -73,31 +74,41 @@ expmap <- function(y, p){
   y$params <- exp(p)
   return(y)
 }
-## O objeto MPP propriamente dito
-Dados <- Datadf
-#Dados$magnitude <- Dados$magnitude - 4.95 # Apenas quando for Phuket
-parameters <- c(0.05, 3.1, 1.5, 0.1, 1.1) # Valores iniciais dos parametros para lambdag
-TT <- c(Dados$time[1], Dados$time[nrow(Dados)])
-sepp <- mpp(data = Dados, gif = etas_gif, marks = list(dgP_mark, rgP_mark),
-            params = parameters, gmap = gmap, mmap = NULL, TT = TT)
+## O objeto MPP propriamente dito 
 
-## Como os parametros do modelo devem ser todos positivos, podemos tirar o log deles e passar
-## para o otimizador para que este trabalhe com todos os reais
-initial <- log(parameters)
-## A funcao negativa logaritimica de verossimilhanca negloglik deve ser minimizada
-# Utilizar dois passos. Primeiro optim e depois nlm
-sepphat <- optim(initial, neglogLik, gr = NULL, object = sepp, pmap = expmap,
-                 control = list(trace = 1, maxit = 100))
-if(sepphat$convergence == 0){
-  # Então a convergencia foi bem sucedida
-  seppmodel <- expmap(sepp, sepphat$par)
-}else{
-  # Agora pode-se usar os parametros estimados para serem valores iniciais de uma nova otimizacao
-  initial <- sepphat$par
-  sepphat <- nlm(neglogLik, initial, object = sepp, pmap = expmap,
-                 print.level = 2, iterlim = 500, typsize = initial)
-  seppmodel <- expmap(sepp, sepphat$estimate)
-}
+  Dados <- Datadf
+  parameters <- c(0.05, 3.1, 1.5, 0.1, 1.1) # Valores iniciais dos parametros para lambdag
+  TT <- c(Dados$time[1], Dados$time[nrow(Dados)])
+  sepp <- mpp(data = Dados, gif = etas_gif, marks = list(dgP_mark, rgP_mark),
+              params = parameters, gmap = gmap, mmap = NULL, TT = TT)
+  
+  ## Como os parametros do modelo devem ser todos positivos, podemos tirar o log deles e passar
+  ## para o otimizador para que este trabalhe com todos os reais
+  initial <- log(parameters)
+  ## A funcao negativa logaritimica de verossimilhanca negloglik deve ser minimizada
+  # Utilizar dois passos. Primeiro optim e depois nlm
+  sepphat <- optim(initial, neglogLik, gr = NULL, object = sepp, pmap = expmap,
+                   control = list(trace = 0, maxit = 100))
+  if(sepphat$convergence == 0){
+    # Então a convergencia foi bem sucedida
+    seppmodel <- expmap(sepp, sepphat$par)
+  }else{
+    # Agora pode-se usar os parametros estimados para serem valores iniciais de uma nova otimizacao
+    initial <- sepphat$par
+    sepphat <- nlm(neglogLik, initial, object = sepp, pmap = expmap,
+                   hessian = TRUE, print.level = 0, iterlim = 500, typsize = initial)
+    seppmodel <- expmap(sepp, sepphat$estimate)
+  }
+  theta <- with(seppmodel, c(params[1]/365, params[2]/365, params[3],
+                             params[4], params[5], xi, beta))
+  names(theta) <- c("tau", "psi", "delta", "gamma", "rho", "xi", "beta")
+  
+  ## Estimando os erros padroes dos parametros de lambdag
+  H <- sepphat$hessian
+  CovM <- solve(H) # Matriz de covariancias eh a inversa da Hessiana
+  # SE e^params = sqrt(se^2*e^2*params)
+  setheta <- sqrt(exp(2*sepphat$estimate)*diag(CovM))
+  setheta <- c(setheta[1]/365, setheta[2]/365, setheta[3:5])
 
 ## Dado a convergencia do modelo podemos plotar a funcao intensidade de base
 pts <- seq(0, as.numeric(index(losses[nrow(losses),])-index(losses[1,]))/365,
@@ -113,12 +124,7 @@ plot(ts[,"excess"], type="h", xlab = "Data", ylab = "Perdas em excesso",
      main = "", major.format="%m/%Y")
 par(op)
 seppmodel$params
-# Plotly
-plot_ly(x=index(ts), y=coredata(ts[,"intensity"]))
 
 ## Analise da adequacao do fit
 plot(residuals(seppmodel), xlab = "Evento Número", ylab = "Tempo Transformado", pty = "s")
-
-# Vetor theta com os parametros conforme modelo na monografia
-theta <- with(seppmodel, c(params[1], params[2]*params[4]^params[5], params[3], params[4], params[5]-1,
-                           params[6], params[7]))
+abline(0, 1)
