@@ -115,15 +115,39 @@ pts <- seq(0, as.numeric(index(losses[nrow(losses),])-index(losses[1,]))/365,
            length.out = nrow(losses))
 lambdag <- etas_gif(Dados, evalpts = pts, params = seppmodel$params)/365
 exc <- (losses[,"losses"]-u)-((losses[,"losses"]-u)<0)*(losses[,"losses"]-u)
-ts <- cbind(losses, intensity = lambdag, exc)
-names(ts)[3] <- "excess"
+
+############################################################################################################
+## Calculo de VaR e ES com base em lambdag
+
+VaRESpp <- function(u, beta, xi, alpha=0.99, lambda){
+  VaRpp <- u+(beta/xi)*(((1-alpha)/lambda)^(-xi)-1)
+  ESpp <- ((VaRpp)/(1-xi))+((beta-xi*u)/(1-xi))
+  return(cbind(VaRpp, ESpp))
+}
+
+vares <- VaRESpp(u, beta, xi, alpha=0.99, lambdag)
+
+## Calculo de VaR e ES não condicionais, com base na GPD apenas
+urisk <- gpdRiskMeasures(gpd, prob = 0.99)
+
+## Serie xts com dados das perdas, perdas em excesso e lambdag
+ts <- cbind(losses, pts, exc, lambdag, vares)
+names(ts) <- c("losses", "indextimes", "excess", "intensity", "VaR", "ES")
+
 op <- par(mfrow=c(2,1))
 plot(ts[,"intensity"], xlab = "", ylab = "Intensidade",
      main = "Processo Pontual de Auto-Excitação", major.format="%m/%Y")
 plot(ts[,"excess"], type="h", xlab = "Data", ylab = "Perdas em excesso",
      main = "", major.format="%m/%Y")
 par(op)
-seppmodel$params
+
+## Grafico do VaR e ES sobre as perdas efetivas
+
+plot(ts[-1,"losses"], type="h", xlab = "Data", ylab = "Perdas",
+     main = "", ylim = c(0, 0.22), major.format="%m/%Y") # A primeira perda nao tem VaR para comparar
+lines(ts[-length(ts[,"VaR"]),"VaR"], col="red") # O ultimo VaR so sera comparado com a proxima perda que ainda nao ocorreu
+lines(ts[-length(ts[,"ES"]),"ES"], col="blue")  # O ultimo ES so sera comparado com a proxima perda que ainda nao ocorreu
+abline(h=urisk[c(2,3)], col=c("red", "blue"))
 
 ## Analise da adequacao do fit
 plot(residuals(seppmodel), xlab = "Evento Número", ylab = "Tempo Transformado", pty = "s")

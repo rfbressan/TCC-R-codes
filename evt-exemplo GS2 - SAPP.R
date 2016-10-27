@@ -17,7 +17,7 @@ library(boot)
 setwd("C:\\Users\\Rafael\\Documents\\UDESC\\TCC\\TCC Latex svn\\TCC-R-codes")
 
 prices <- as.xts(read.zoo(read.csv("evt-exemplo GS.csv"), format = "%Y-%m-%d", FUN = as.Date))
-returns <- na.omit(Return.calculate(prices, method = "log"))
+returns <- 100*na.omit(Return.calculate(prices, method = "log"))
 losses <- -1*returns
 losses <- losses[,"Adj.Close"]
 names(losses) <- "losses"
@@ -46,9 +46,44 @@ names(dados) <- c("time", "magnitude")
 dados <- dados[which(dados$magnitude>u),]-u
 params <- c(etasmodel$param[[1]], etasmodel$param[[2]], etasmodel$param[[4]], etasmodel$param[[3]],
             etasmodel$param[[5]])
+## Calculo de lambdag atraves do pacote PtProcess com os parametros estimados por SAPP
+## ######## ALGUM PROBLEMA COM ESCALA DE LAMBDA. EH PRECISO REDUZIR SEUS VALORES CALCULADOS
+########### PARA AS ESTIMACOES DE VaR E ES FAZEREM MAIS SENTIDO
+######################################################################################################
 lambdag <- etas_gif(dados, evalpts = indextimes, params = params)
 
+############################################################################################################
+## Calculo de VaR e ES com base em lambdag
+
+VaRESpp <- function(u, beta, xi, alpha=0.99, lambda){
+  VaRpp <- u+(beta/xi)*(((1-alpha)/lambda)^(-xi)-1)
+  ESpp <- ((VaRpp)/(1-xi))+((beta-xi*u)/(1-xi))
+  return(cbind(VaRpp, ESpp))
+}
+
+vares <- VaRESpp(u, beta, xi, alpha=0.99, lambdag)
+
+## Calculo de VaR e ES não condicionais, com base na GPD apenas
+urisk <- gpdRiskMeasures(gpd, prob = 0.99)
+
+## Serie xts com dados das perdas, perdas em excesso e lambdag
+ts <- cbind(losses, indextimes, (losses[,"losses"]-u)-((losses[,"losses"]-u)<0)*(losses[,"losses"]-u),
+            lambdag, vares)
+names(ts) <- c("losses", "indextimes", "excess", "intensity", "VaR", "ES")
+
+## Grafico comparando a intesidade estimada e as perdas em excesso
 op <- par(mfrow=c(2,1))
-plot(dados, type="h")
-plot(indextimes, lambdag, type = "l")
+plot(ts[,"intensity"], xlab = "", ylab = "Intensidade",
+     main = "Processo Pontual de Auto-Excitação", major.format="%m/%Y")
+plot(ts[,"excess"], type="h", xlab = "Data", ylab = "Perdas em excesso",
+     main = "", major.format="%m/%Y")
 par(op)
+
+## Grafico do VaR e ES sobre as perdas efetivas
+
+plot(ts[,"losses"], type="h", xlab = "Data", ylab = "Perdas",
+     main = "", major.format="%m/%Y")
+lines(ts[,"VaR"], col="red")
+lines(ts[,"ES"], col="blue")
+abline(h=urisk[c(2,3)], col=c("red", "blue"))
+
