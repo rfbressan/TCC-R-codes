@@ -156,3 +156,4 @@ legend("topright", legend = c("VaR incondicional", "ES incondicional"), col = c(
 plot(residuals(seppmodel), xlab = "Evento Número", ylab = "Tempo Transformado", pty = "s")
 abline(0, 1)
 
+
