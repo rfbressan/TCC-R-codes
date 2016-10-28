@@ -144,11 +144,15 @@ par(op)
 ## Grafico do VaR e ES sobre as perdas efetivas
 
 plot(ts[-1,"losses"], type="h", xlab = "Data", ylab = "Perdas",
-     main = "", ylim = c(0, 0.22), major.format="%m/%Y") # A primeira perda nao tem VaR para comparar
-lines(ts[-length(ts[,"VaR"]),"VaR"], col="red") # O ultimo VaR so sera comparado com a proxima perda que ainda nao ocorreu
-lines(ts[-length(ts[,"ES"]),"ES"], col="blue")  # O ultimo ES so sera comparado com a proxima perda que ainda nao ocorreu
-abline(h=urisk[c(2,3)], col=c("red", "blue"))
+     main = "Medidas Condicionais de Risco",
+     ylim = c(0, 0.22), major.format="%m/%Y") # A primeira perda nao tem VaR para comparar
+lines(ts[-length(ts[,"VaR"]),"VaR"], col="red", lwd = 2) # O ultimo VaR so sera comparado com a proxima perda que ainda nao ocorreu
+lines(ts[-length(ts[,"ES"]),"ES"], col="blue", lwd = 2)  # O ultimo ES so sera comparado com a proxima perda que ainda nao ocorreu
+abline(h=urisk[c(2,3)], col=c("red", "blue"), lty = c(2,4), lwd = 2)
+legend("topright", legend = c("VaR incondicional", "ES incondicional"), col = c("red", "blue"),
+       lty = c(2, 4), lwd = 2, cex = 1.2)
 
 ## Analise da adequacao do fit
 plot(residuals(seppmodel), xlab = "Evento Número", ylab = "Tempo Transformado", pty = "s")
 abline(0, 1)
+
